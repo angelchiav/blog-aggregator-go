@@ -19,4 +19,5 @@ RETURNING *;
 
 -- name: GetUsers :many
 SELECT *
-FROM users;
+FROM users
+ORDER BY created_at ASC;

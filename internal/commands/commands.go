@@ -98,3 +98,26 @@ func (s *State) HandlerReset(cmd Command) error {
 	fmt.Println("All users deleted.")
 	return nil
 }
+
+func (s *State) HandlerUsers(cmd Command) error {
+	users, err := s.DB.GetUsers(context.Background())
+	if err != nil {
+		return fmt.Errorf("error fetching users: %v", err)
+	}
+
+	current := strings.TrimSpace(s.Cfg.CurrentUser)
+
+	if len(users) == 0 {
+		fmt.Println("No users available.")
+		return nil
+	}
+
+	for _, user := range users {
+		if user.Name == current {
+			fmt.Printf("* %s (current)\n", user.Name)
+		} else {
+			fmt.Printf("* %s\n", user.Name)
+		}
+	}
+	return nil
+}
