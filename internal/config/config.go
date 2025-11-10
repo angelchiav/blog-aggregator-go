@@ -23,7 +23,6 @@ func Write(cfg Config) error {
 		localPath := filepath.Join(cwd, ".gatorconfig.json")
 		if _, err := os.Stat(localPath); err == nil {
 			return saveToFile(localPath, cfg)
-
 		}
 	}
 
@@ -37,6 +36,7 @@ func Write(cfg Config) error {
 }
 
 func Read() (Config, error) {
+
 	path, err := os.UserHomeDir()
 	if err != nil {
 		return Config{}, err
@@ -56,6 +56,7 @@ func Read() (Config, error) {
 	if cfg.DBURL == "" {
 		return Config{}, errors.New("config db_url is empty")
 	}
+
 	return cfg, nil
 }
 

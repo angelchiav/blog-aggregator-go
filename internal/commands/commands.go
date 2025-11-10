@@ -1,14 +1,20 @@
 package commands
 
 import (
-	"errors"
+	"context"
 	"fmt"
+	"log"
+	"strings"
+	"time"
 
 	"github.com/angelchiav/blog-aggregator-go/internal/config"
+	"github.com/angelchiav/blog-aggregator-go/internal/database"
+	"github.com/google/uuid"
 )
 
 type State struct {
 	Cfg *config.Config
+	DB  *database.Queries
 }
 
 type Command struct {
@@ -35,16 +41,60 @@ func (c *Commands) Run(s *State, cmd Command) error {
 	return h(s, cmd)
 }
 
-func HandlerLogin(s *State, cmd Command) error {
+func (s *State) HandlerLogin(cmd Command) error {
 	if len(cmd.Args) < 1 {
-		return errors.New("a username is required")
+		return fmt.Errorf("a username is required")
 	}
-	username := cmd.Args[0]
+	username := strings.TrimSpace(cmd.Args[0])
+
+	// Verify user exists in DB
+	if _, err := s.DB.GetUserByName(context.Background(), username); err != nil {
+		return fmt.Errorf("no such user")
+	}
+
 	if err := s.Cfg.SetUser(username); err != nil {
 		return err
 	}
 
 	fmt.Printf("user set to %q\n", username)
+	return nil
+}
 
+func (s *State) HandlerRegister(cmd Command) error {
+	if len(cmd.Args) < 1 {
+		return fmt.Errorf("missing <name>")
+	}
+	name := strings.TrimSpace(cmd.Args[0])
+	now := time.Now()
+
+	user, err := s.DB.CreateUser(context.Background(), database.CreateUserParams{
+		ID:        uuid.New(),
+		CreatedAt: now,
+		UpdatedAt: now,
+		Name:      name,
+	})
+	if err != nil {
+		if strings.Contains(err.Error(), "duplicate key") {
+			return fmt.Errorf("user already exists")
+		}
+		return fmt.Errorf("CreateUser: %w", err)
+	}
+
+	if err := s.Cfg.SetUser(name); err != nil {
+		return fmt.Errorf("set user in config: %w", err)
+	}
+
+	fmt.Printf("user created: %s\n", user.Name)
+	log.Printf("DEBUG USER: ID=%s CreatedAt=%s UpdatedAt=%s Name=%s",
+		user.ID, user.CreatedAt.Format(time.RFC3339), user.UpdatedAt.Format(time.RFC3339), user.Name)
+
+	return nil
+}
+
+func (s *State) HandlerReset(cmd Command) error {
+	if err := s.DB.Reset(context.Background()); err != nil {
+		return err
+	}
+	fmt.Println("All users deleted.")
 	return nil
 }

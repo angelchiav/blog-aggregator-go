@@ -1,17 +1,49 @@
 package main
 
 import (
+	"database/sql"
 	"fmt"
+	"log"
 	"os"
+
+	_ "github.com/lib/pq"
 
 	"github.com/angelchiav/blog-aggregator-go/internal/commands"
 	"github.com/angelchiav/blog-aggregator-go/internal/config"
+	"github.com/angelchiav/blog-aggregator-go/internal/database"
 )
 
 func main() {
+
+	// Arguments verification
+
 	if len(os.Args) < 2 {
 		fmt.Fprintln(os.Stderr, "not enough arguments: need a command")
 		os.Exit(1)
+	}
+
+	// Reading (Unmarshaling JSON)
+
+	cfg, err := config.Read()
+	if err != nil {
+		log.Fatal(err)
+		os.Exit(1)
+	}
+
+	// Starting PostgreSQL DB
+
+	db, err := sql.Open("postgres", cfg.DBURL)
+	if err != nil {
+		log.Fatalf("error running the database: %v", err)
+	}
+
+	defer db.Close()
+
+	// State Instance
+
+	state := &commands.State{
+		Cfg: &cfg,
+		DB:  database.New(db),
 	}
 
 	cmdName := os.Args[1]
@@ -21,25 +53,18 @@ func main() {
 		cmdArgs = os.Args[2:]
 	}
 
-	cfg, err := config.Read()
-
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "read config: ", err)
-		os.Exit(1)
-	}
-
-	st := &commands.State{
-		Cfg: &cfg,
-	}
-
-	reg := &commands.Commands{}
-	reg.Register("login", commands.HandlerLogin)
+	// Command registry
+	reg := commands.Commands{}
+	reg.Register("login", (*commands.State).HandlerLogin)
+	reg.Register("register", (*commands.State).HandlerRegister)
+	reg.Register("reset", (*commands.State).HandlerReset)
 
 	cmd := commands.Command{
 		Name: cmdName,
 		Args: cmdArgs,
 	}
-	if err := reg.Run(st, cmd); err != nil {
+
+	if err := reg.Run(state, cmd); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
