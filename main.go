@@ -59,6 +59,11 @@ func main() {
 	reg.Register("register", (*commands.State).HandlerRegister)
 	reg.Register("reset", (*commands.State).HandlerReset)
 	reg.Register("users", (*commands.State).HandlerUsers)
+	reg.Register("agg", (*commands.State).HandlerAgg)
+	reg.Register("addfeed", (*commands.State).HandlerAddFeed)
+	reg.Register("feeds", (*commands.State).HandlerGetFeed)
+	reg.Register("follow", (*commands.State).HandlerFeedFollow)
+	reg.Register("following", (*commands.State).HandlerFeedFollowing)
 
 	cmd := commands.Command{
 		Name: cmdName,

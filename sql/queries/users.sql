@@ -21,3 +21,8 @@ RETURNING *;
 SELECT *
 FROM users
 ORDER BY created_at ASC;
+
+-- name: GetUserNameById :many
+SELECT name
+FROM users
+WHERE id = $1;

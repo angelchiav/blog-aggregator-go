@@ -65,6 +65,35 @@ func (q *Queries) GetUserByName(ctx context.Context, name string) (User, error) 
 	return i, err
 }
 
+const getUserNameById = `-- name: GetUserNameById :many
+SELECT name
+FROM users
+WHERE id = $1
+`
+
+func (q *Queries) GetUserNameById(ctx context.Context, id uuid.UUID) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, getUserNameById, id)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return nil, err
+		}
+		items = append(items, name)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getUsers = `-- name: GetUsers :many
 SELECT id, created_at, updated_at, name
 FROM users

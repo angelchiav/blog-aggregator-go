@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/xml"
 	"fmt"
+	"html"
 	"io"
 	"net/http"
 )
@@ -24,7 +25,7 @@ type RSSItem struct {
 	PubDate     string `xml:"pubDate"`
 }
 
-func fetchFeed(ctx context.Context, feedURL string) (*RRSFeed, error) {
+func FetchFeed(ctx context.Context, feedURL string) (*RRSFeed, error) {
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, feedURL, nil)
 	if err != nil {
@@ -53,6 +54,14 @@ func fetchFeed(ctx context.Context, feedURL string) (*RRSFeed, error) {
 
 	if err := xml.Unmarshal(data, &feed); err != nil {
 		return nil, fmt.Errorf("error parsing the XML: %v", err)
+	}
+
+	feed.Channel.Title = html.UnescapeString(feed.Channel.Title)
+	feed.Channel.Description = html.UnescapeString(feed.Channel.Description)
+
+	for i := range feed.Channel.Item {
+		feed.Channel.Item[i].Title = html.UnescapeString(feed.Channel.Item[i].Title)
+		feed.Channel.Item[i].Description = html.UnescapeString(feed.Channel.Item[i].Description)
 	}
 
 	return &feed, nil
