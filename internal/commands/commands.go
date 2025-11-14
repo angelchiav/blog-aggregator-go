@@ -196,16 +196,9 @@ func (s *State) HandlerGetFeed(cmd Command) error {
 }
 
 func (s *State) addFeed(name string, url string) (database.Feed, error) {
-
-	currentUser := strings.TrimSpace(s.Cfg.CurrentUser)
-
-	if currentUser == "" {
-		return database.Feed{}, fmt.Errorf("no user set")
-	}
-
-	user, err := s.DB.GetUserByName(context.Background(), currentUser)
+	user, err := s.DB.GetUserByName(context.Background(), s.Cfg.CurrentUser)
 	if err != nil {
-		return database.Feed{}, fmt.Errorf("user does not exists: %v", err)
+		return database.Feed{}, fmt.Errorf("user does not exist: %v", err)
 	}
 
 	feed, err := s.DB.CreateFeed(context.Background(), database.CreateFeedParams{
@@ -224,13 +217,8 @@ func (s *State) addFeed(name string, url string) (database.Feed, error) {
 }
 
 func (s *State) FeedFollow(url string) (database.CreateFeedFollowRow, error) {
-	currentUser := strings.TrimSpace(s.Cfg.CurrentUser)
 
-	if currentUser == "" {
-		return database.CreateFeedFollowRow{}, fmt.Errorf("no user set")
-	}
-
-	user, err := s.DB.GetUserByName(context.Background(), currentUser)
+	user, err := s.DB.GetUserByName(context.Background(), s.Cfg.CurrentUser)
 	if err != nil {
 		return database.CreateFeedFollowRow{}, fmt.Errorf("user does not exist: %v", err)
 	}

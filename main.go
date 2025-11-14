@@ -60,15 +60,10 @@ func main() {
 	reg.Register("reset", (*commands.State).HandlerReset)
 	reg.Register("users", (*commands.State).HandlerUsers)
 	reg.Register("agg", (*commands.State).HandlerAgg)
-	reg.Register("addfeed", (*commands.State).HandlerAddFeed)
+	reg.Register("addfeed", cmd.State.MiddlewareLoggedIn((*commands.State).HandlerAddFeed))
 	reg.Register("feeds", (*commands.State).HandlerGetFeed)
 	reg.Register("follow", (*commands.State).HandlerFeedFollow)
 	reg.Register("following", (*commands.State).HandlerFeedFollowing)
-
-	cmd := commands.Command{
-		Name: cmdName,
-		Args: cmdArgs,
-	}
 
 	if err := reg.Run(state, cmd); err != nil {
 		fmt.Fprintln(os.Stderr, err)
