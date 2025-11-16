@@ -133,7 +133,7 @@ func (s *State) HandlerAgg(cmd Command) error {
 	return nil
 }
 
-func (s *State) HandlerAddFeed(cmd Command) error {
+func (s *State) HandlerAddFeed(cmd Command, user database.User) error {
 	if len(cmd.Args) < 2 {
 		return fmt.Errorf("usage: addfeed <name> <url>")
 	}
@@ -149,7 +149,7 @@ func (s *State) HandlerAddFeed(cmd Command) error {
 		return fmt.Errorf("invalid url: %v", err)
 	}
 
-	feed, err := s.addFeed(name, feedURL)
+	feed, err := s.addFeed(user, name, feedURL)
 	if err != nil {
 		return err
 	}
