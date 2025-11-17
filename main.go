@@ -52,6 +52,10 @@ func main() {
 	if len(os.Args) > 2 {
 		cmdArgs = os.Args[2:]
 	}
+	cmd := commands.Command{
+		Name: cmdName,
+		Args: cmdArgs,
+	}
 
 	// Command registry
 	reg := commands.Commands{}
@@ -60,10 +64,11 @@ func main() {
 	reg.Register("reset", (*commands.State).HandlerReset)
 	reg.Register("users", (*commands.State).HandlerUsers)
 	reg.Register("agg", (*commands.State).HandlerAgg)
-	reg.Register("addfeed", cmd.State.MiddlewareLoggedIn((*commands.State).HandlerAddFeed))
+	reg.Register("addfeed", commands.MiddlewareLoggedIn(commands.HandlerAddFeed))
 	reg.Register("feeds", (*commands.State).HandlerGetFeed)
-	reg.Register("follow", (*commands.State).HandlerFeedFollow)
-	reg.Register("following", (*commands.State).HandlerFeedFollowing)
+	reg.Register("follow", commands.MiddlewareLoggedIn(commands.HandlerFeedFollow))
+	reg.Register("following", commands.MiddlewareLoggedIn(commands.HandlerFeedFollowing))
+	reg.Register("unfollow", commands.MiddlewareLoggedIn(commands.HandlerFeedUnfollow))
 
 	if err := reg.Run(state, cmd); err != nil {
 		fmt.Fprintln(os.Stderr, err)

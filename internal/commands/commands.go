@@ -133,17 +133,13 @@ func (s *State) HandlerAgg(cmd Command) error {
 	return nil
 }
 
-func (s *State) HandlerAddFeed(cmd Command, user database.User) error {
+func HandlerAddFeed(s *State, cmd Command, user database.User) error {
 	if len(cmd.Args) < 2 {
 		return fmt.Errorf("usage: addfeed <name> <url>")
 	}
 
 	name := strings.TrimSpace(cmd.Args[0])
 	feedURL := strings.TrimSpace(cmd.Args[1])
-
-	if strings.TrimSpace(s.Cfg.CurrentUser) == "" {
-		return fmt.Errorf("no user set")
-	}
 
 	if _, err := url.ParseRequestURI(feedURL); err != nil {
 		return fmt.Errorf("invalid url: %v", err)
@@ -155,10 +151,6 @@ func (s *State) HandlerAddFeed(cmd Command, user database.User) error {
 	}
 
 	ctx := context.Background()
-	user, err := s.DB.GetUserByName(ctx, s.Cfg.CurrentUser)
-	if err != nil {
-		return fmt.Errorf("no such user: %v", err)
-	}
 
 	_, err = s.DB.CreateFeedFollow(ctx, database.CreateFeedFollowParams{
 		ID:        uuid.New(),
@@ -195,12 +187,7 @@ func (s *State) HandlerGetFeed(cmd Command) error {
 	return nil
 }
 
-func (s *State) addFeed(name string, url string) (database.Feed, error) {
-	user, err := s.DB.GetUserByName(context.Background(), s.Cfg.CurrentUser)
-	if err != nil {
-		return database.Feed{}, fmt.Errorf("user does not exist: %v", err)
-	}
-
+func (s *State) addFeed(user database.User, name string, url string) (database.Feed, error) {
 	feed, err := s.DB.CreateFeed(context.Background(), database.CreateFeedParams{
 		ID:        uuid.New(),
 		CreatedAt: time.Now(),
@@ -216,13 +203,7 @@ func (s *State) addFeed(name string, url string) (database.Feed, error) {
 	return feed, nil
 }
 
-func (s *State) FeedFollow(url string) (database.CreateFeedFollowRow, error) {
-
-	user, err := s.DB.GetUserByName(context.Background(), s.Cfg.CurrentUser)
-	if err != nil {
-		return database.CreateFeedFollowRow{}, fmt.Errorf("user does not exist: %v", err)
-	}
-
+func feedFollow(s *State, user database.User, url string) (database.CreateFeedFollowRow, error) {
 	feed, err := s.DB.GetFeedByURL(context.Background(), url)
 	if err != nil {
 		return database.CreateFeedFollowRow{}, fmt.Errorf("feed url does not exist: %v", err)
@@ -235,7 +216,6 @@ func (s *State) FeedFollow(url string) (database.CreateFeedFollowRow, error) {
 		UserID:    user.ID,
 		FeedID:    feed.ID,
 	})
-
 	if err != nil {
 		return database.CreateFeedFollowRow{}, fmt.Errorf("feed follow cannot be created: %v", err)
 	}
@@ -243,14 +223,14 @@ func (s *State) FeedFollow(url string) (database.CreateFeedFollowRow, error) {
 	return feedFollow, nil
 }
 
-func (s *State) HandlerFeedFollow(cmd Command) error {
+func HandlerFeedFollow(s *State, cmd Command, user database.User) error {
 	if len(cmd.Args) < 1 {
 		return fmt.Errorf("usage: follow <url>")
 	}
 
 	url := cmd.Args[0]
 
-	feedfollow, err := s.FeedFollow(url)
+	feedfollow, err := feedFollow(s, user, url)
 	if err != nil {
 		return err
 	}
@@ -260,18 +240,8 @@ func (s *State) HandlerFeedFollow(cmd Command) error {
 	return nil
 }
 
-func (s *State) HandlerFeedFollowing(cmd Command) error {
-
+func HandlerFeedFollowing(s *State, cmd Command, user database.User) error {
 	ctx := context.Background()
-
-	if strings.TrimSpace(s.Cfg.CurrentUser) == "" {
-		return fmt.Errorf("no user set")
-	}
-
-	user, err := s.DB.GetUserByName(ctx, s.Cfg.CurrentUser)
-	if err != nil {
-		return fmt.Errorf("user does not exist: %v", err)
-	}
 
 	rows, err := s.DB.GetFeedFollowsForUser(ctx, user.ID)
 	if err != nil {
@@ -284,8 +254,43 @@ func (s *State) HandlerFeedFollowing(cmd Command) error {
 	}
 
 	for _, row := range rows {
-		fmt.Printf("- %s (%s)", row.FeedName, row.UserName)
+		fmt.Printf("- %s (%s)\n", row.FeedName, row.UserName)
 	}
+
+	return nil
+}
+
+func feedUnfollow(s *State, user database.User, url string) error {
+	ctx := context.Background()
+
+	feed, err := s.DB.GetFeedByURL(ctx, url)
+	if err != nil {
+		return fmt.Errorf("feed url does not exist: %v", err)
+	}
+
+	err = s.DB.DeleteFeedFollowRecord(ctx, database.DeleteFeedFollowRecordParams{
+		UserID: user.ID,
+		FeedID: feed.ID,
+	})
+	if err != nil {
+		return fmt.Errorf("could not unfollow feed: %v", err)
+	}
+
+	return nil
+}
+
+func HandlerFeedUnfollow(s *State, cmd Command, user database.User) error {
+	if len(cmd.Args) < 1 {
+		return fmt.Errorf("usage: unfollow <url>")
+	}
+
+	url := cmd.Args[0]
+
+	if err := feedUnfollow(s, user, url); err != nil {
+		return err
+	}
+
+	fmt.Printf("unfollowed feed: %s (%s)\n", url, user.Name)
 
 	return nil
 }

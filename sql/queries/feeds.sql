@@ -52,3 +52,8 @@ JOIN users AS u ON u.id = ff.user_id
 JOIN feeds AS f ON f.id = ff.feed_id
 WHERE ff.user_id = $1
 ORDER BY ff.created_at ASC;
+
+-- name: DeleteFeedFollowRecord :exec
+DELETE FROM feed_follows
+WHERE user_id = $1
+  AND feed_id = $2;
