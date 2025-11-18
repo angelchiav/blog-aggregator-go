@@ -69,6 +69,7 @@ func main() {
 	reg.Register("follow", commands.MiddlewareLoggedIn(commands.HandlerFeedFollow))
 	reg.Register("following", commands.MiddlewareLoggedIn(commands.HandlerFeedFollowing))
 	reg.Register("unfollow", commands.MiddlewareLoggedIn(commands.HandlerFeedUnfollow))
+	reg.Register("browse", commands.MiddlewareLoggedIn(commands.HandlerBrowse))
 
 	if err := reg.Run(state, cmd); err != nil {
 		fmt.Fprintln(os.Stderr, err)
