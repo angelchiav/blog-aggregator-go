@@ -2,9 +2,11 @@ package commands
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"log"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -329,8 +331,97 @@ func scrapeFeeds(s *State) error {
 	}
 
 	for _, item := range parsedFeed.Channel.Items {
-		fmt.Printf("- %s\n", item.Title)
+		publishedAt := sql.NullTime{}
+		if t, err := parsePublishedTime(item.PubDate); err == nil {
+			publishedAt = sql.NullTime{
+				Time:  t,
+				Valid: true,
+			}
+		} else {
+			log.Printf("could not parse pubDate %q for feed: %s: %v\n", item.PubDate, feed.Url, err)
+		}
+
+		now := time.Now()
+
+		err = s.DB.CreatePost(ctx, database.CreatePostParams{
+			ID:        uuid.New(),
+			CreatedAt: now,
+			UpdatedAt: now,
+			Title:     item.Title,
+			Url:       item.Link,
+			Description: sql.NullString{
+				String: item.Description,
+				Valid:  item.Description != "",
+			},
+			PublishedAt: publishedAt,
+			FeedID:      feed.ID,
+		})
+		if err != nil {
+			if strings.Contains(err.Error(), "duplicate key") || strings.Contains(err.Error(), "unique constraint") {
+				continue
+			}
+			log.Printf("error saving post (feed %s): %v\n", feed.Url, err)
+		}
 	}
 
+	return nil
+}
+
+func parsePublishedTime(raw string) (time.Time, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return time.Time{}, fmt.Errorf("empty pubDate")
+	}
+
+	layouts := []string{
+		time.RFC1123Z,
+		time.RFC1123,
+		time.RFC822Z,
+		time.RFC822,
+		time.RFC3339,
+	}
+
+	for _, layout := range layouts {
+		if t, err := time.Parse(layout, raw); err == nil {
+			return t, nil
+		}
+	}
+
+	return time.Time{}, fmt.Errorf("could not parse pubDate: %q", raw)
+}
+
+func HandlerBrowse(s *State, cmd Command, user database.User) error {
+	limit := 2
+	if len(cmd.Args) >= 1 {
+		n, err := strconv.Atoi(cmd.Args[0])
+		if err != nil {
+			return fmt.Errorf("invalid limit %q", err)
+		}
+		limit = n
+	}
+
+	ctx := context.Background()
+
+	rows, err := s.DB.GetPostsForUser(ctx, database.GetPostsForUserParams{
+		UserID: user.ID,
+		Limit:  int32(limit),
+	})
+	if err != nil {
+		return fmt.Errorf("could not get posts: %w", err)
+	}
+
+	if len(rows) == 0 {
+		fmt.Println("No posts found.")
+		return nil
+	}
+
+	for _, p := range rows {
+		published := "unknown"
+		if p.PublishedAt.Valid {
+			published = p.PublishedAt.Time.Format(time.RFC1123)
+		}
+
+		fmt.Printf("Title: %s\nURL: %s\nPublished: %s\n\n", p.Title, p.Url, published)
+	}
 	return nil
 }
